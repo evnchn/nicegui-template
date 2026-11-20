@@ -126,31 +126,34 @@ def test_template_without_contributing_and_ai(copie: Copie, answers: dict[str, s
 
 def test_poetry_lock(copie: Copie, answers: dict[str, str | list[str]]):
     # ARRANGE & ACT
-    result = copie.copy(extra_answers={**answers, 'use_poetry': True})
+    result = copie.copy(extra_answers={**answers, 'dependency_management': 'poetry'})
     # ASSERT
     assert result.exit_code == 0
     assert result.exception is None
     assert result.project_dir is not None
     assert result.project_dir.is_dir()
+    assert 'dependency_management: poetry' in (result.project_dir / '.copier-answers.yml').read_text()
     poetry_lock = subprocess.run(['poetry', 'lock'], cwd=result.project_dir, check=False)
     assert poetry_lock.returncode == 0
 
 
-@pytest.mark.parametrize('package_management', ['poetry', 'uv', 'pip'])
+@pytest.mark.parametrize('dependency_management', ['poetry', 'uv', 'pip'])
 @pytest.mark.parametrize('use_rosys', ['RoSys', ''])
 @pytest.mark.parametrize('use_precommit', ['pre-commit', ''])
 @pytest.mark.parametrize('task', ['mypy', 'pylint', 'ruff', 'pytest'])
 def test_code_checkers(copie: Copie,
                        answers: dict[str, str | list[str]],
-                       package_management: str,
+                       dependency_management: str,
                        use_rosys: str,
                        use_precommit: str,
                        task: str):
     # ARRANGE
     result = copie.copy(extra_answers={**answers,
-                                       'package_management': package_management,
+                                       'dependency_management': dependency_management,
                                        'use_rosys': bool(use_rosys),
                                        'use_precommit': bool(use_precommit)})
+    assert result.project_dir is not None
+    assert f'dependency_management: {dependency_management}' in (result.project_dir / '.copier-answers.yml').read_text()
     arguments = [task] if task == 'pytest' else ['make', task]
     # ACT
     test_run: CompletedProcess = subprocess.run(arguments, cwd=result.project_dir, check=False)
